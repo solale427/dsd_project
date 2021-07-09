@@ -33,7 +33,7 @@ module tbt_adder (
  integer i;
  integer j;
  
- adder adder(
+ adder single_adder (
     .reset(reset),
     .clk(clk),
     .load(input_adder_load),
