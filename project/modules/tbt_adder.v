@@ -111,7 +111,7 @@ module tbt_adder (
             end
             S_SET_RESULT:
             begin
-                result <= {result_reg[0][0], result_reg[0][1], result_reg[1][0], result_reg[1][1]};
+                result <= {result_reg[1][1], result_reg[1][0], result_reg[0][1], result_reg[0][0]};
                 result_ready <= 1;
                 if(result_ack)
                 begin
