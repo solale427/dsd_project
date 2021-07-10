@@ -1,35 +1,16 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 02/02/2021 04:46:52 PM
-// Design Name: 
-// Module Name: adder
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
 
 module adder(
-input clk,
-input reset, 
-input load,
-input [31:0]Number1, 
-input [31:0]Number2, 
-input result_ack,
-output [31:0]Result,
-output reg result_ready
+    input clk,
+    input reset, 
+    input load,
+    input [31:0]Number1, 
+    input [31:0]Number2, 
+    input result_ack,
+    output [31:0]Result,
+    output reg result_ready
 );
+
     localparam get_input = 0;
     localparam calculate = 1;
     localparam final = 2;
@@ -38,17 +19,17 @@ output reg result_ready
     reg [31:0] number2_copy;
     reg start = 0;
     reg [1:0] state;
-    reg    [31:0] Num_shift_80; 
-    reg    [7:0]  Larger_exp_80,Final_expo_80;
-    reg    [22:0] Small_exp_mantissa_80,S_mantissa_80,L_mantissa_80,Large_mantissa_80,Final_mant_80;
-    reg    [23:0] Add_mant_80,Add1_mant_80;
-    reg    [7:0]  e1_80,e2_80;
-    reg    [22:0] m1_80,m2_80;
-    reg           s1_80,s2_80,Final_sign_80;
-    reg    [3:0]  renorm_shift_80;
-    integer signed   renorm_exp_80;
-    //reg           renorm_exp_80;
-    reg    [31:0] Result_80;
+    reg [31:0] Num_shift_80;
+    reg [7:0] Larger_exp_80,Final_expo_80;
+    reg [22:0] Small_exp_mantissa_80,S_mantissa_80,L_mantissa_80,Large_mantissa_80,Final_mant_80;
+    reg [23:0] Add_mant_80,Add1_mant_80;
+    reg [7:0] e1_80,e2_80;
+    reg [22:0] m1_80,m2_80;
+    reg s1_80,s2_80,Final_sign_80;
+    reg [3:0] renorm_shift_80;
+    integer renorm_exp_80;
+    //reg renorm_exp_80;
+    reg [31:0] Result_80;
 
     assign Result = Result_80;
 
@@ -58,11 +39,21 @@ output reg result_ready
         if (start) begin
             e1_80 = number1_copy[30:23];
             e2_80 = number2_copy[30:23];
-                m1_80 = number1_copy[22:0];
+            m1_80 = number1_copy[22:0];
             m2_80 = number2_copy[22:0];
             s1_80 = number1_copy[31];
             s2_80 = number2_copy[31];
-                
+            if(number1_copy == 0)
+            begin
+                Result_80 = number2_copy;
+            end
+            else if(number2_copy == 0)
+            begin
+                Result_80 = number1_copy;
+            end
+            else
+            begin
+            
                 if (e1_80  > e2_80) begin
                     Num_shift_80           = e1_80 - e2_80;              // number of mantissa shift
                     Larger_exp_80           = e1_80;                     // store lower exponent
@@ -72,7 +63,7 @@ output reg result_ready
                 
                 else begin
                     Num_shift_80           = e2_80 - e1_80;
-                    Larger_exp_80           = e2_80;
+                    Larger_exp_80          = e2_80;
                     Small_exp_mantissa_80  = m1_80;
                     Large_mantissa_80      = m2_80;
                 end
@@ -186,6 +177,7 @@ output reg result_ready
             
             Result_80 = {Final_sign_80,Final_expo_80,Final_mant_80}; 
         end
+        end
         else begin
             Result_80 = 0;
         end
@@ -233,4 +225,3 @@ output reg result_ready
             end
     end
 endmodule
-
