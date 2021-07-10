@@ -13,13 +13,13 @@ module tbt_mult_async
 	output result_ready
 );
 
-localparam s_IDLE			= 0;
-localparam s_INITIALIZE		= 1;
-localparam s_MULT		   	= 2;
-localparam s_WAIT			= 3;
-localparam s_SUM			= 4;
-localparam s_SET_RESULT  	= 5;
-localparam s_GET_RESULT     = 6;
+localparam s_IDLE = 0;
+localparam s_INITIALIZE = 1;
+localparam s_MULT = 2;
+localparam s_WAIT = 3;
+localparam s_SUM = 4;
+localparam s_SET_RESULT = 5;
+localparam s_GET_RESULT = 6;
 
 //internal variables
 reg [FLOATSIZE - 1:0] A_reg	[1:0][1:0];
