@@ -62,7 +62,13 @@ begin
 			.input_b_ack()
 		);
 		
-	adder single_adder(
+	
+
+		
+end
+endgenerate
+
+adder single_adder(
 		.clk(clk),
 		.reset(input_adder_reset), 
 		.load(input_adder_load),
@@ -71,11 +77,7 @@ begin
 		.result_ack(input_adder_result_ack),
 		.Result(output_adder_result),
 		.result_ready(output_adder_ready)
-	);
-
-		
-end
-endgenerate
+);
 
 assign result_ready = result_ready_reg;
 
@@ -96,16 +98,12 @@ begin
 	end
 	else
 	begin
-		{A_reg[1][1], A_reg[1][0], A_reg[0][1], A_reg[0][0]} = A;
-		{B_reg[1][1], B_reg[1][0], B_reg[0][1], B_reg[0][0]} = B;
-
 		case(state)
 			s_IDLE:
 			begin
 				input_adder_load <= 1'b0;
 				input_adder_reset <= 1'b0;
 				input_mult_reset <= 1'b1;
-				result_ready_reg <= 1'b0;
 				i <= 0;
 				j <= 0;
 				for (k = 0; k < 2; k = k + 1)
@@ -114,7 +112,11 @@ begin
 					input_mult_a_stb[k] <= 1'b0;
 				end
 				if(load)
+				begin
+					{A_reg[1][1], A_reg[1][0], A_reg[0][1], A_reg[0][0]} = A;
+					{B_reg[1][1], B_reg[1][0], B_reg[0][1], B_reg[0][0]} = B;
 					state <= s_INITIALIZE;
+				end
 				else
 					state <= s_IDLE;
 			end
@@ -187,7 +189,11 @@ begin
 			end
 			s_GET_RESULT:
 				if (result_ack)
+				begin
+					result_ready_reg <= 1'b0;
+					input_adder_result_ack <= 0;
 					state <= s_IDLE;
+				end
 				else
 					state <= s_GET_RESULT;
 			default:

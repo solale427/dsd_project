@@ -18,7 +18,7 @@ module adder(
     reg [31:0] number1_copy;
     reg [31:0] number2_copy;
     reg start = 0;
-    reg [1:0] state;
+    reg [1:0] state = 0;
     reg [31:0] Num_shift_80;
     reg [7:0] Larger_exp_80,Final_expo_80;
     reg [22:0] Small_exp_mantissa_80,S_mantissa_80,L_mantissa_80,Large_mantissa_80,Final_mant_80;

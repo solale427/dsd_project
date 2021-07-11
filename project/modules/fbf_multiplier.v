@@ -30,17 +30,17 @@ module fbf_multiplier (
     reg [31:0] B_reg [3:0][3:0];
     reg [31:0] result_reg [3:0][3:0];
     
-    wire [31:0] temp_mult_result [3:0][3:0];
+    wire [32 * 4 * 4 - 1:0] temp_mult_result;
     reg [31:0] first_mult_result [3:0][3:0];
     reg [31:0] second_mult_result [3:0][3:0];
     wire mult_result_ready[3:0];
     reg mult_load = 0;
-    reg mult_ready = 0;
+    reg mult_result_ack = 0;
     
     reg add_stb = 0;
     reg add_result_ack = 0;
     wire add_result_ready[3:0];
-    wire [31:0] temp_add_result [3:0][3:0];
+    wire [32 * 4 * 4 - 1:0] temp_add_result;
     
     integer j;
     integer k;
@@ -53,19 +53,17 @@ module fbf_multiplier (
         wire [32 * 2 * 2 - 1:0] input_A, input_B, output_result;
         assign input_A = {A_reg[row_index + 1][column_index + 1], A_reg[row_index + 1][column_index], A_reg[row_index][column_index + 1], A_reg[row_index][column_index]};
         assign input_B = {B_reg[row_index + 1][column_index + 1], B_reg[row_index + 1][column_index], B_reg[row_index][column_index + 1], B_reg[row_index][column_index]};
-        tbt_multiplier multiplier(
+        tbt_mult_async multiplier(
             .clk(clk),
             .reset(reset),
             .load(mult_load),
             .A(input_A),
             .B(input_B),
-            .Res(output_result),
-            .result_ready(mult_result_ready[i])
+            .result(output_result),
+            .result_ready(mult_result_ready[i]),
+            .result_ack(mult_result_ack)
         );
-        assign temp_mult_result[row_index][column_index] = output_result[31:0];
-        assign temp_mult_result[row_index][column_index + 1] = output_result[63:32];
-        assign temp_mult_result[row_index + 1][column_index] = output_result[95:64];
-        assign temp_mult_result[row_index + 1][column_index + 1] = output_result[127:96];
+        assign temp_mult_result[(i*128)+:128] = output_result;
     end
     endgenerate
     
@@ -88,10 +86,7 @@ module fbf_multiplier (
             .result_ready(add_result_ready[l]),
             .result(output_result)
         );
-        assign temp_add_result[row_index][column_index] = output_result[31:0];
-        assign temp_add_result[row_index][column_index + 1] = output_result[63:32];
-        assign temp_add_result[row_index + 1][column_index] = output_result[95:64];
-        assign temp_add_result[row_index + 1][column_index + 1] = output_result[127:96];
+        assign temp_add_result[(l*128)+:128] = output_result;
     end
     endgenerate
     
@@ -99,14 +94,20 @@ module fbf_multiplier (
     begin
         if(!reset)
         begin
-            
+            mult_load <= 0;
+            mult_result_ack <= 0;
+            add_stb <= 0;
+            add_result_ack <= 0;
+            result_ready <= 0;
+            state <= S_IDLE;
         end
         else
         begin
-            case (state):
+            case (state)
                 S_IDLE:
                 begin
                     result_ready <= 0;
+                    add_result_ack <= 0;
                     if(A_stb && B_stb)
                     begin
                         set_A_and_B();
@@ -126,18 +127,23 @@ module fbf_multiplier (
                 end
                 S_WAIT_FOR_FIRST:
                 begin
-                    mult_load <= 0;
                     if(mult_result_ready[0] && mult_result_ready[1] && mult_result_ready[2] && mult_result_ready[3])
                     begin
                         for(j = 0; j < 4; j = j + 1)
                         begin
                             for(k = 0; k < 4; k = k + 1)
                             begin
-                                first_mult_result[j][k] <= temp_mult_result[j][k];
+                                first_mult_result[j][k] = temp_mult_result[((4*j+k)*32)+:32];
                             end
                         end
+                        mult_load <= 0;
+                        mult_result_ack = 1;
+                        state <= S_SHIFT;
                     end
-                    state <= S_SHIFT;
+                    else
+                    begin
+                        state <= S_WAIT_FOR_FIRST;
+                    end
                 end
                 S_SHIFT:
                 begin
@@ -150,18 +156,24 @@ module fbf_multiplier (
                 end
                 S_WAIT_FOR_SECOND:
                 begin
-                    mult_load <= 0;
+                    mult_result_ack = 0;
                     if(mult_result_ready[0] && mult_result_ready[1] && mult_result_ready[2] && mult_result_ready[3])
                     begin
                         for(j = 0; j < 4; j = j + 1)
                         begin
                             for(k = 0; k < 4; k = k + 1)
                             begin
-                                second_mult_result[j][k] <= temp_mult_result[j][k];
+                                second_mult_result[j][k] = temp_mult_result[((4*j+k)*32)+:32];
                             end
                         end
+                    	mult_load <= 0;
+                        mult_result_ack = 1;
+                        state <= S_SET_ADDER_INPUT;
                     end 
-                    state <= S_SET_ADDER_INPUT;
+                    else
+                    begin
+                        state <= S_WAIT_FOR_SECOND;
+                    end
                 end
                 S_SET_ADDER_INPUT:
                 begin
@@ -170,23 +182,28 @@ module fbf_multiplier (
                 end
                 S_WAIT_FOR_ADDER:
                 begin
-                    add_stb <= 0;
+                    mult_result_ack = 0;
                     if(add_result_ready[0] && add_result_ready[1] && add_result_ready[2] && add_result_ready[3])
                     begin
                         for(j = 0; j < 4; j = j + 1)
                         begin
                             for(k = 0; k < 4; k = k + 1)
                             begin
-                                result_reg[j][k] <= temp_add_result[j][k];
+                                result_reg[j][k] = temp_add_result[((4*j+k)*32)+:32];
                             end
                         end
+                    	add_stb <= 0;
+                        add_result_ack = 1;
+                        state <= S_SET_RESULT;
                     end
-                    add_result_ack <= 1;
-                    state <= S_SET_RESULT;
+                    else
+                    begin
+                        state <= S_WAIT_FOR_ADDER;
+                    end
                 end
                 S_SET_RESULT:
                 begin
-                    add_result_ack <= 0;
+                 
                     set_result();
                     result_ready <= 1;
                     if(result_ack)
@@ -208,14 +225,14 @@ module fbf_multiplier (
     end
     
     task automatic set_A_and_B();
-    begin
+    begin: set_A_and_B_task
         integer m, n;
         for(m = 0; m < 4 ; m = m + 1)
         begin
             for(n = 0; n < 4 ; n = n + 1)
             begin
-                A_reg[m][n] = A[((m*2+n)*32)+:32];
-                B_reg[m][n] = B[((m*2+n)*32)+:32];
+                A_reg[m][n] = A[((m*4+n)*32)+:32];
+                B_reg[m][n] = B[((m*4+n)*32)+:32];
             end
         end
     end
@@ -224,7 +241,7 @@ module fbf_multiplier (
     task automatic shift_left_block_A(
         input up
     );
-    begin
+    begin: shift_left_block_A_task
         reg [1:0] offset;
         offset = up ? 2'd0 : 2'd2;
         A_reg[offset][0] <= A_reg[offset][2];
@@ -241,7 +258,7 @@ module fbf_multiplier (
     task automatic shift_left_block_B(
         input left
     );
-    begin
+    begin: shift_left_block_B_task
         reg [1:0] offset;
         offset = left ? 2'd0 : 2'd2;
         B_reg[0][offset] <= B_reg[2][offset];
@@ -256,7 +273,7 @@ module fbf_multiplier (
     endtask
     
     task automatic set_result();
-    begin
+    begin: set_result_task
         integer m, n;
         for(m = 0; m < 4; m = m + 1)
         begin

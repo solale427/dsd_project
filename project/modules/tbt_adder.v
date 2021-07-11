@@ -131,7 +131,7 @@ module tbt_adder (
  end
  
  task automatic set_A_and_B();
- begin
+ begin: set_A_and_B_tbt
     integer m;
     integer n;
     for(m = 0; m < 2 ; m = m + 1)

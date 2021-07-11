@@ -1,6 +1,7 @@
 'define A_OFFSET
 'define B_OFFSET
 'define C_OFFSET
+
 module top (
     input start,
     input reset,
@@ -30,13 +31,16 @@ module top (
     reg [7:0] A_row_index, A_column_index, B_row_index, B_column_index, C_row_index, C_column_index;
     wire A_block_ack, B_block_ack;   //output 4 by 4 multiplier
     reg A_block_stb, B_block_stb;    //input 4 by 4 multiplier
+    
     reg [31:0] state = S_IDLE;
+    
     reg [ADDRESS_SIZE - 1:0] mem_addr;
     reg [31:0] mem_Din;
     reg mem_read = 1'b0;
     reg mem_write = 1'b0;
     wire [31:0] mem_Dout_wire;
     reg [31:0] mem_Dout = 32'b0;
+    
     reg [31:0] A_block [3:0][3:0];
     reg [31:0] B_block [3:0][3:0];
     reg [31:0] C_block [3:0][3:0];
@@ -52,6 +56,18 @@ module top (
         .WriteEn(mem_write),
         .Dout(mem_Dout_wire)
     );
+    
+    fbf_multiplier multiplier(
+    .A_stb(),
+    .B_stb(),
+    .clk(),
+    .reset(),
+    .result_ack(),
+    .A(),
+    .B(),
+    .result_ready(),
+    .result()
+);
     
     always @(posedge clock or negedge reset)
     begin
@@ -78,7 +94,7 @@ module top (
                 end
                 S_READ_STATUS:
                 begin
-                    input_ready <= mem_Dout[0];
+                    input_ready = mem_Dout[0];
                     if(input_ready)
                     begin
                         read_memory(CONFIG_ADDR);
@@ -114,11 +130,11 @@ module top (
                     if(i < 4 && i + A_row_index < A_row_size)
                     begin
                         A_block[i][j] <= mem_Dout;
-                        j <= j + 1;
+                        j = j + 1;
                         if(j >= 4 || j + A_column_index >= A_column_size)
                         begin
-                            j <= 0;
-                            i <= i + 1;
+                            j = 0;
+                            i = i + 1;
                         end
                         read_memory(get_address(A_row_index + i, A_column_index + j, A_row_size, A_column_size, A_OFFSET));
                         state <= S_READ_A;
@@ -150,11 +166,11 @@ module top (
                     if(i < 4 && i + B_row_index < B_row_size)
                     begin
                         B_block[i][j] <= mem_Dout;
-                        j <= j + 1;
+                        j = j + 1;
                         if(j >= 4 || j + B_column_index >= B_column_size)
                         begin
-                            j <= 0;
-                            i <= i + 1;
+                            j = 0;
+                            i = i + 1;
                         end
                         read_memory(get_address(B_row_index + i, B_column_index + j, B_row_size, B_column_size, B_OFFSET));
                         state <= S_READ_B;
@@ -188,7 +204,7 @@ module top (
                     end
                     else if(A_block_ack && B_block_ack)
                     begin 
-                        column_index <= column_index + 4;
+                        column_index = column_index + 4;
                         i <= 0;
                         j <= 0;
                         read_memory(get_address(A_row_index, A_column_index, A_row_size, A_column_size, A_OFFSET));
@@ -209,11 +225,11 @@ module top (
                 S_WRITE:
                 begin
                     write_memory(get_address(C_row_index + i, C_column_index + j, C_row_size, C_column_size, C_OFFSET), C_block[i][j]);
-                    j <= j + 1;
+                    j = j + 1;
                     if(j >= 4 || j + C_column_index >= C_column_size)
                     begin
-                        j <= 0;
-                        i <= i + 1;
+                        j = 0;
+                        i = i + 1;
                     end
                     if(i < 4 && i + C_row_index < C_row_size)
                     begin
@@ -246,6 +262,7 @@ module top (
                 begin
                     if(mult_ack)
                     begin
+                        write_memory(STATUS_ADDR, 32'b0);
                         state <= S_IDLE;
                     end
                     else
@@ -298,10 +315,10 @@ module top (
         input [31:0] config
     );
     begin
-        A_row_size <= config[7:0];
-        A_column_size, <= config[15:8];
-        B_row_size <= config[23:16];
-        B_column_size <= config[31:24];
+        A_row_size = config[7:0];
+        A_column_size, = config[15:8];
+        B_row_size = config[23:16];
+        B_column_size = config[31:24];
     end
     endtask
     
