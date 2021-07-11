@@ -12,6 +12,9 @@ module fbf_adder #(
     output result_ready,
     output [32 * SIZE * SIZE - 1:0] result
 );
+    
+    wire temp_result_ready[3:0];
+    
     genvar i;
     generate for(i = 0; i < SIZE; i = i + 1) 
     begin
@@ -23,9 +26,12 @@ module fbf_adder #(
             .result_ack(result_ack),
             .A(A[(i * 32 * 2 * 2)+:32 * 2 * 2]),
             .B(B[(i * 32 * 2 * 2)+:32 * 2 * 2]),
-            .result_ready(result_ready),
+            .result_ready(temp_result_ready[i]),
             .result(result[(i * 32 * 2 * 2)+:32 * 2 * 2])
         );
     end
     endgenerate
+    
+    assign result_ready = temp_result_ready[0] & temp_result_ready[1] & temp_result_ready[2] & temp_result_ready[3];
+    
 endmodule

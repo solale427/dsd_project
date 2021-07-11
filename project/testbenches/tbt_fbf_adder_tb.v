@@ -1,24 +1,4 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 07/10/2021 09:23:21 AM
-// Design Name: 
-// Module Name: tbt_fbf_adder_tb
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
 
 module tbt_fbf_adder_tb();
     reg A_stb_tbt;
@@ -68,7 +48,8 @@ module tbt_fbf_adder_tb();
     initial
    begin
       clk = 0;
-      repeat(3000) #10 clk = ~clk;
+      forever
+        #10 clk = ~clk;
    end
 
 initial begin
