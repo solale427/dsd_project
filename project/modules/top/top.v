@@ -5,8 +5,9 @@
 module top (
     input start,
     input reset,
-    input clock,
-    input mult_ack
+    input clk,
+    input mult_ack,
+    output reg ready
  );
     
     parameter ADDRESS_SIZE = 9;
@@ -20,17 +21,16 @@ module top (
     localparam S_EXTEND_A = 4;
     localparam S_READ_B = 5;
     localparam S_EXTEND_B = 6;
-    localparam S_WAIT = 7;
-    localparam S_WAIT_FOR_WRITE = 8;
-    localparam S_WRITE = 9;
-    localparam S_PREPARE_TO_READ = 10;
-    localparam S_FINISH = 11;
+    localparam S_WAIT_FOR_MULT = 7;
+    localparam S_WAIT_FOR_ADD = 8;
+    localparam S_PREPARE_FOR_WRITE = 9;
+    localparam S_WRITE = 10;
+    localparam S_PREPARE_TO_READ = 11;
+    localparam S_FINISH = 12;
         
     reg [7:0] A_row_size, A_column_size, B_row_size, B_column_size, C_row_size, C_column_size;
     reg input_ready = 1'b0;  //first bit of status
     reg [7:0] A_row_index, A_column_index, B_row_index, B_column_index, C_row_index, C_column_index;
-    wire A_block_ack, B_block_ack;   //output 4 by 4 multiplier
-    reg A_block_stb, B_block_stb;    //input 4 by 4 multiplier
     
     reg [31:0] state = S_IDLE;
     
@@ -46,10 +46,24 @@ module top (
     reg [31:0] C_block [3:0][3:0];
     reg size_mismatch_error = 1'b0;
     integer i, j;
-    reg finished;
+    reg finished = 0;
+    
+    reg A_stb_mult = 0;
+    reg B_stb_mult = 0;
+    reg result_ack_mult = 0;
+    reg [32 * 4 * 4 - 1:0] A_mult, B_mult;
+    wire result_ready_mult;
+    wire [32 * 4 * 4 - 1:0] result_mult;
+    
+    reg A_stb_add = 0;
+    reg B_stb_add = 0;
+    reg result_ack_add = 0;
+    reg [32 * 4 * 4 - 1:0] A_add, B_add;
+    wire result_ready_add;
+    wire [32 * 4 * 4 - 1:0] result_add;
     
     memory mem(
-        .clk(clock),
+        .clk(clk),
         .addr(mem_addr),
         .Din(mem_Din),
         .Read(mem_read),
@@ -57,23 +71,37 @@ module top (
         .Dout(mem_Dout_wire)
     );
     
-    fbf_multiplier multiplier(
-    .A_stb(),
-    .B_stb(),
-    .clk(),
-    .reset(),
-    .result_ack(),
-    .A(),
-    .B(),
-    .result_ready(),
-    .result()
-);
+    fbf_multiplier multiplier (
+        .A_stb(A_stb_mult),
+        .B_stb(B_stb_mult),
+        .clk(clk),
+        .reset(reset),
+        .result_ack(result_ack_mult),
+        .A(A_mult),
+        .B(B_mult),
+        .result_ready(result_ready_mult),
+        .result(result_mult)
+    );
     
-    always @(posedge clock or negedge reset)
+    module fbf_adder (
+        .A_stb(A_stb_add),
+        .B_stb(B_stb_add),
+        .clk(clk),
+        .reset(reset),
+        .result_ack(result_ack_add),
+        .A(A_add),
+        .B(B_add),
+        .result_ready(result_ready_add),
+        .result(result_add)
+    );
+    
+    
+    always @(posedge clk or negedge reset)
     begin
         mem_Dout <= mem_Dout_wire;
         if(!reset)
         begin
+            finished = 1'b0;
             state <= S_IDLE;
         end
         else
@@ -111,6 +139,7 @@ module top (
                     read_config(mem_Dout);
                     if(A_column_size != B_row_size)
                     begin
+                        set_off_memory();
                         size_mismatch_error <= 1'b1;
                         state <= S_IDLE;
                     end
@@ -118,6 +147,7 @@ module top (
                     begin
                         C_row_size <= A_row_size;
                         C_column_size <= B_column_size;
+                        clear_C_block();
                         reset_indexes();
                         i <= 0;
                         j <= 0;
@@ -141,6 +171,7 @@ module top (
                     end
                     else
                     begin
+                        set_off_memory();
                         state <= S_EXTEND_A;
                     end
                 end
@@ -177,6 +208,7 @@ module top (
                     end
                     else
                     begin
+                        set_off_memory();
                         state <= S_EXTEND_B;
                     end
                 end
@@ -188,39 +220,66 @@ module top (
                         begin
                             if(i + B_row_index >= B_row_size || j + B_column_index >= B_column_size)
                             begin
-                                B_block[i][j] <= 0;
+                                B_block[i][j] = 0;
                             end
                         end
                     end
-                    state <= S_WAIT;
+                    set_A_and_B_mult();
+                    A_stb_mult = 1;
+                    B_stb_mult = 1;
+                    state <= S_WAIT_FOR_MULT;
                 end
-                S_WAIT:
+                S_WAIT_FOR_MULT:
                 begin
-                    A_block_stb <= 1'b1;
-                    B_block_stb <= 1'b1;
-                    if(row_read_finished(A_column_index, A_column_size))
+                    if(result_ready_mult)
                     begin
-                        state <= S_WAIT_FOR_WRITE;
-                    end
-                    else if(A_block_ack && B_block_ack)
-                    begin 
-                        column_index = column_index + 4;
-                        i <= 0;
-                        j <= 0;
-                        read_memory(get_address(A_row_index, A_column_index, A_row_size, A_column_size, A_OFFSET));
-                        A_block_stb <= 1'b0;
-                        B_block_stb <= 1'b0;
-                        state <= S_READ_A;
+                        A_stb_mult = 0;
+                        B_stb_mult = 0;
+                        set_A_and_B_add();
+                        result_ack_mult = 1;
+                        A_stb_add = 1;
+                        B_stb_add = 1;
+                        state <= S_WAIT_FOR_ADD;
                     end
                     else
                     begin
-                        state <= S_WAIT;
+                        state <= S_WAIT_FOR_MULT;
                     end
                 end
-                S_WAIT_FOR_WRITE:
+                S_WAIT_FOR_ADD:
                 begin
-                    i <= 0;
-                    j <= 0;
+                    result_ack_mult = 0;
+                    if(result_ready_add)
+                    begin
+                        A_stb_add = 0;
+                        B_stb_add = 0;
+                        set_C_block();
+                        result_ack_add = 1;
+                        state <= S_PREPARE_FOR_WRITE;
+                    end
+                    else
+                    begin
+                        state <= S_WAIT_FOR_MULT;
+                    end
+                end
+                S_PREPARE_FOR_WRITE:
+                begin
+                    result_ack_add = 0;
+                    if(row_read_finished(A_column_index, A_column_size))
+                    begin
+                        i <= 0;
+                        j <= 0
+                        state <= S_WRITE;
+                    end
+                    else
+                    begin
+                        A_column_index = A_column_index + 4;
+                        B_row_index = B_row_index + 4;
+                        i <= 0;
+                        j <= 0;
+                        read_memory(get_address(A_row_index, A_column_index, A_row_size, A_column_size, A_OFFSET));
+                        state <= S_READ_A;
+                    end
                 end
                 S_WRITE:
                 begin
@@ -260,13 +319,16 @@ module top (
                 end
                 S_FINISH:
                 begin
+                    ready = 1;
                     if(mult_ack)
                     begin
+                        ready = 0;
                         write_memory(STATUS_ADDR, 32'b0);
                         state <= S_IDLE;
                     end
                     else
                     begin
+                        set_off_memory();
                         state <= S_FINISH;
                     end
                 end
@@ -373,6 +435,55 @@ module top (
             B_column_index = 0;
             A_row_index = A_row_index + 4;
         end
+    end
+    endtask
+    
+    task automatic set_A_and_B_mult();
+    begin
+        integer m, n;
+        for(m = 0; m < 4; m = m + 1)
+        begin
+            for(n = 0; n < 4; n = n + 1)
+            begin
+                A_mult[((4*m+n)*32)+:32] = A_block[m][n];
+                B_mult[((4*m+n)*32)+:32] = B_block[m][n];
+            end
+        end
+    end
+    endtask
+    
+    task automatic set_A_and_B_add();
+    begin
+        integer m, n;
+        for(m = 0; m < 4; m = m + 1)
+        begin
+            for(n = 0; n < 4; n = n + 1)
+            begin
+                A_add[((4*m+n)*32)+:32] = C_block[m][n];
+            end
+        end
+        B_add = result_mult;
+    end
+    endtask
+    
+    task automatic set_C_block();
+    begin
+        integer m, n;
+        for(m = 0; m < 4 ; m = m + 1)
+        begin
+            for(n = 0; n < 4 ; n = n + 1)
+            begin
+                C_block[m][n] = result_add[((m*4+n)*32)+:32];
+            end
+        end
+    end
+    endtask
+    
+    task automatic set_off_memory();
+    begin
+        mem_addr = 0;
+        mem_read = 0;
+        mem_write = 0;
     end
     endtask
     
