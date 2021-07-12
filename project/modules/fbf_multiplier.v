@@ -137,7 +137,7 @@ module fbf_multiplier (
                             end
                         end
                         mult_load <= 0;
-                        mult_result_ack = 1;
+                        mult_result_ack <= 1;
                         state <= S_SHIFT;
                     end
                     else
@@ -156,19 +156,19 @@ module fbf_multiplier (
                 end
                 S_WAIT_FOR_SECOND:
                 begin
-                    mult_result_ack = 0;
+                    mult_result_ack <= 0;
                     if(mult_result_ready[0] && mult_result_ready[1] && mult_result_ready[2] && mult_result_ready[3])
                     begin
                         for(j = 0; j < 4; j = j + 1)
                         begin
                             for(k = 0; k < 4; k = k + 1)
                             begin
-                                second_mult_result[j][k] = temp_mult_result[((4*j+k)*32)+:32];
+                                second_mult_result[j][k] <= temp_mult_result[((4*j+k)*32)+:32];
                             end
                         end
                     	mult_load <= 0;
-                        mult_result_ack = 1;
-                        state <= S_SET_ADDER_INPUT;
+                     mult_result_ack <= 1;
+                     state <= S_SET_ADDER_INPUT;
                     end 
                     else
                     begin
@@ -182,7 +182,7 @@ module fbf_multiplier (
                 end
                 S_WAIT_FOR_ADDER:
                 begin
-                    mult_result_ack = 0;
+                    mult_result_ack <= 0;
                     if(add_result_ready[0] && add_result_ready[1] && add_result_ready[2] && add_result_ready[3])
                     begin
                         for(j = 0; j < 4; j = j + 1)
@@ -193,7 +193,7 @@ module fbf_multiplier (
                             end
                         end
                     	add_stb <= 0;
-                        add_result_ack = 1;
+                        add_result_ack <= 1;
                         state <= S_SET_RESULT;
                     end
                     else
@@ -231,8 +231,8 @@ module fbf_multiplier (
         begin
             for(n = 0; n < 4 ; n = n + 1)
             begin
-                A_reg[m][n] = A[((m*4+n)*32)+:32];
-                B_reg[m][n] = B[((m*4+n)*32)+:32];
+                A_reg[m][n] <= A[((m*4+n)*32)+:32];
+                B_reg[m][n] <= B[((m*4+n)*32)+:32];
             end
         end
     end

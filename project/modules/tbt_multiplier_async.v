@@ -42,8 +42,12 @@ wire [FLOATSIZE - 1:0] output_mult_result [0:1];
 wire output_adder_ready;
 wire output_mult_ready [0:1];
 
+integer i;
+integer j;
+integer k;
+
 genvar m, n;
-integer i, j, k = 0;
+
 
 generate
 begin
@@ -61,10 +65,6 @@ begin
 			.input_a_ack(),
 			.input_b_ack()
 		);
-		
-	
-
-		
 end
 endgenerate
 
@@ -90,11 +90,10 @@ begin
 		input_adder_reset <= 1'b0;
 		input_mult_reset <= 1'b1;
 		result_ready_reg <= 1'b0;
-		for (i = 0; i < 2; i = i + 1)
-		begin
-			input_mult_a_stb[i] <= 1'b0;
-			input_mult_a_stb[i] <= 1'b0;
-		end
+		input_mult_a_stb[0] <= 1'b0;
+		input_mult_a_stb[0] <= 1'b0;
+		input_mult_b_stb[1] <= 1'b0;
+		input_mult_b_stb[1] <= 1'b0;
 	end
 	else
 	begin
