@@ -4,7 +4,7 @@ parameter ADDR_WIDTH = 16;
 localparam RAM_DEPTH = 1 << ADDR_WIDTH;
 reg clk;
 reg writeEn;
-reg read;
+reg read = 0;
 reg [ADDR_WIDTH-1:0] addr;
 reg [31:0] din;
 wire [31:0] dout;
