@@ -1,6 +1,6 @@
 module RAM_TB;
 
-parameter ADDR_WIDTH = 16;
+parameter ADDR_WIDTH = 10;
 localparam RAM_DEPTH = 1 << ADDR_WIDTH;
 reg clk;
 reg writeEn;
