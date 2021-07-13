@@ -7,10 +7,10 @@ module top (
  );
     
     parameter A_OFFSET = 16'd2;
-    parameter B_OFFSET = 16'd10002;
-    parameter C_OFFSET = 16'd20002;
+    parameter B_OFFSET = 16'd302;
+    parameter C_OFFSET = 16'd602;
 
-    parameter ADDRESS_SIZE = 16;
+    parameter ADDRESS_SIZE = 10;
     parameter CONFIG_ADDR = 1;
     parameter STATUS_ADDR = 0;
     

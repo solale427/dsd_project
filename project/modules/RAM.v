@@ -1,5 +1,5 @@
 module sync_ram #(
-  parameter ADDR_WIDTH=16             //width of addresse bus
+  parameter ADDR_WIDTH=10             //width of addresse bus
 )(
   input  [31:0] 	    Din,     //data to be written
   input  [(ADDR_WIDTH-1):0] addr,    //address for write/read operation
