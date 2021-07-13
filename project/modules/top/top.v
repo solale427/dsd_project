@@ -99,18 +99,28 @@ module top (
     
     always @(posedge clk or negedge reset)
     begin
-        mem_Dout = mem_Dout_wire;
+        
         if(!reset)
         begin
+            A_stb_mult = 0;
+            B_stb_mult = 0;
+            result_ack_mult = 0;
+            A_stb_add = 0;
+            B_stb_add = 0;
+            result_ack_add = 0;
+            set_off_memory();
+            size_mismatch_error <= 1'b0;
+            ready = 0;
             finished = 1'b0;
             state <= S_IDLE;
         end
         else
         begin
+		  mem_Dout = mem_Dout_wire;
             case (state)
                 S_IDLE:
                 begin
-                    finished <= 1'b0;
+                    finished = 1'b0;
                     if(start)
                     begin
                         read_memory(STATUS_ADDR);
@@ -150,8 +160,8 @@ module top (
                         C_column_size <= B_column_size;
                         clear_C_block();
                         reset_indexes();
-                        i <= 0;
-                        j <= 0;
+                        i = 0;
+                        j = 0;
                         read_memory(get_address(A_row_index, A_column_index, A_row_size, A_column_size, A_OFFSET));
                         state <= S_READ_A;
                     end
@@ -160,7 +170,7 @@ module top (
                 begin
                     if(i < 4 && i + A_row_index < A_row_size)
                     begin
-                        A_block[i][j] <= mem_Dout;
+                        A_block[i][j] = mem_Dout;
                         j = j + 1;
                         if(j >= 4 || j + A_column_index >= A_column_size)
                         begin
@@ -184,12 +194,12 @@ module top (
                         begin
                             if(i + A_row_index >= A_row_size || j + A_column_index >= A_column_size)
                             begin
-                                A_block[i][j] <= 0;
+                                A_block[i][j] = 0;
                             end
                         end
                     end
-                    i <= 0;
-                    j <= 0;
+                    i = 0;
+                    j = 0;
                     read_memory(get_address(B_row_index, B_column_index, B_row_size, B_column_size, B_OFFSET));
                     state <= S_READ_B;
                 end
@@ -197,7 +207,7 @@ module top (
                 begin
                     if(i < 4 && i + B_row_index < B_row_size)
                     begin
-                        B_block[i][j] <= mem_Dout;
+                        B_block[i][j] = mem_Dout;
                         j = j + 1;
                         if(j >= 4 || j + B_column_index >= B_column_size)
                         begin
@@ -268,16 +278,16 @@ module top (
                     result_ack_add = 0;
                     if(row_read_finished(A_column_index, A_column_size))
                     begin
-                        i <= 0;
-                        j <= 0;
+                        i = 0;
+                        j = 0;
                         state <= S_WRITE;
                     end
                     else
                     begin
                         A_column_index = A_column_index + 4;
                         B_row_index = B_row_index + 4;
-                        i <= 0;
-                        j <= 0;
+                        i = 0;
+                        j = 0;
                         read_memory(get_address(A_row_index, A_column_index, A_row_size, A_column_size, A_OFFSET));
                         state <= S_READ_A;
                     end
@@ -312,8 +322,8 @@ module top (
                     else
                     begin
                         set_indexes();
-                        i <= 0;
-                        j <= 0;
+                        i = 0;
+                        j = 0;
                         read_memory(get_address(A_row_index, A_column_index, A_row_size, A_column_size, A_OFFSET));
                         state <= S_READ_A;
                     end    
