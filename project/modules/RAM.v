@@ -11,7 +11,6 @@ module sync_ram #(
   localparam RAM_DEPTH = 1 << ADDR_WIDTH;
   reg [31:0] mem [RAM_DEPTH-1:0];
   
-  
   assign Dout = (read) ? mem[addr] : 32'bz;
 
   always @(posedge clk) begin //WRITE
