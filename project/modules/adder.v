@@ -66,6 +66,11 @@ module adder(
                     Larger_exp_80          = e2_80;
                     Small_exp_mantissa_80  = m1_80;
                     Large_mantissa_80      = m2_80;
+                    if(e1_80 == e2_80 && m1_80 > m2_80)
+                    begin
+                        Small_exp_mantissa_80  = m2_80;
+                        Large_mantissa_80      = m1_80;
+                    end
                 end
         
             if (e1_80 == 0 | e2_80 ==0) begin

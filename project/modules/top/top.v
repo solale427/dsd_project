@@ -1,7 +1,3 @@
-'define A_OFFSET
-'define B_OFFSET
-'define C_OFFSET
-
 module top (
     input start,
     input reset,
@@ -10,7 +6,11 @@ module top (
     output reg ready
  );
     
-    parameter ADDRESS_SIZE = 9;
+    parameter A_OFFSET = 16'd2;
+    parameter B_OFFSET = 16'd10002;
+    parameter C_OFFSET = 16'd20002;
+
+    parameter ADDRESS_SIZE = 16;
     parameter CONFIG_ADDR = 1;
     parameter STATUS_ADDR = 0;
     
@@ -32,7 +32,7 @@ module top (
     reg input_ready = 1'b0;  //first bit of status
     reg [7:0] A_row_index, A_column_index, B_row_index, B_column_index, C_row_index, C_column_index;
     
-    reg [31:0] state = S_IDLE;
+    reg [5:0] state = S_IDLE;
     
     reg [ADDRESS_SIZE - 1:0] mem_addr;
     reg [31:0] mem_Din;
@@ -62,16 +62,16 @@ module top (
     wire result_ready_add;
     wire [32 * 4 * 4 - 1:0] result_add;
     
-    memory mem(
+    sync_ram mem(
         .clk(clk),
         .addr(mem_addr),
         .Din(mem_Din),
-        .Read(mem_read),
-        .WriteEn(mem_write),
+        .read(mem_read),
+        .writeEn(mem_write),
         .Dout(mem_Dout_wire)
     );
     
-    fbf_multiplier multiplier (
+    fbf_multiplier multiplier(
         .A_stb(A_stb_mult),
         .B_stb(B_stb_mult),
         .clk(clk),
@@ -83,7 +83,7 @@ module top (
         .result(result_mult)
     );
     
-    module fbf_adder (
+    fbf_adder adder(
         .A_stb(A_stb_add),
         .B_stb(B_stb_add),
         .clk(clk),
@@ -96,9 +96,10 @@ module top (
     );
     
     
+    
     always @(posedge clk or negedge reset)
     begin
-        mem_Dout <= mem_Dout_wire;
+        mem_Dout = mem_Dout_wire;
         if(!reset)
         begin
             finished = 1'b0;
@@ -259,7 +260,7 @@ module top (
                     end
                     else
                     begin
-                        state <= S_WAIT_FOR_MULT;
+                        state <= S_WAIT_FOR_ADD;
                     end
                 end
                 S_PREPARE_FOR_WRITE:
@@ -268,7 +269,7 @@ module top (
                     if(row_read_finished(A_column_index, A_column_size))
                     begin
                         i <= 0;
-                        j <= 0
+                        j <= 0;
                         state <= S_WRITE;
                     end
                     else
@@ -340,14 +341,14 @@ module top (
     
     
     function automatic [ADDRESS_SIZE - 1:0] get_address(
-        input [7:0] row_index;
-        input [7:0] column_index;
-        input [7:0] row_size;
-        input [7:0] column_size;
-        input [ADDRESS_SIZE - 1:0] offset;
+        input [7:0] row_index,
+        input [7:0] column_index,
+        input [7:0] row_size,
+        input [7:0] column_size,
+        input [ADDRESS_SIZE - 1:0] offset
     );
     begin
-        get_address = row_index * row_size + column_index + offset;
+        get_address = row_index * column_size + column_index + offset;
     end
     endfunction
     
@@ -374,13 +375,13 @@ module top (
     endtask
     
     task automatic read_config(
-        input [31:0] config
+        input [31:0] config_data
     );
     begin
-        A_row_size = config[7:0];
-        A_column_size, = config[15:8];
-        B_row_size = config[23:16];
-        B_column_size = config[31:24];
+        A_row_size = config_data[7:0];
+        A_column_size = config_data[15:8];
+        B_row_size = config_data[23:16];
+        B_column_size = config_data[31:24];
     end
     endtask
     
@@ -396,8 +397,8 @@ module top (
     endtask
     
     function automatic row_read_finished(
-        input [7:0] column_index;
-        input [7:0] column_size;
+        input [7:0] column_index,
+        input [7:0] column_size
     );
     begin
         if(column_index + 4 >= column_size)
@@ -408,7 +409,7 @@ module top (
     endfunction
     
     task automatic clear_C_block();
-    begin
+    begin: clear_C_block_task
         integer i, j;
         for(i = 0; i < 4; i = i + 1)
             for(j = 0; j < 4; j = j + 1)
@@ -418,7 +419,7 @@ module top (
     
     task automatic set_finished();
     begin
-        if(A_row_index + 4 >= A_row_size)
+        if(C_row_index + 4 >= C_row_size && C_column_index + 4 >= C_column_size)
             finished = 1'b1;
         else
             finished = 1'b0;
@@ -430,16 +431,19 @@ module top (
         A_column_index = 0;
         B_row_index = 0;
         B_column_index = B_column_index + 4;
+        C_column_index = C_column_index + 4;
         if(B_column_index >= B_column_size)
         begin
             B_column_index = 0;
             A_row_index = A_row_index + 4;
+            C_column_index = 0;
+            C_row_index = C_row_index + 4;
         end
     end
     endtask
     
     task automatic set_A_and_B_mult();
-    begin
+    begin: set_A_and_B_mult_task
         integer m, n;
         for(m = 0; m < 4; m = m + 1)
         begin
@@ -453,7 +457,7 @@ module top (
     endtask
     
     task automatic set_A_and_B_add();
-    begin
+    begin: set_A_and_B_add_task
         integer m, n;
         for(m = 0; m < 4; m = m + 1)
         begin
@@ -467,7 +471,7 @@ module top (
     endtask
     
     task automatic set_C_block();
-    begin
+    begin: set_C_block_task
         integer m, n;
         for(m = 0; m < 4 ; m = m + 1)
         begin

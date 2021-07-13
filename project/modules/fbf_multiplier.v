@@ -95,10 +95,10 @@ module fbf_multiplier (
         if(!reset)
         begin
             mult_load <= 0;
-            mult_result_ack <= 0;
+            mult_result_ack = 0;
             add_stb <= 0;
-            add_result_ack <= 0;
-            result_ready <= 0;
+            add_result_ack = 0;
+            result_ready = 0;
             state <= S_IDLE;
         end
         else
@@ -106,13 +106,11 @@ module fbf_multiplier (
             case (state)
                 S_IDLE:
                 begin
-                    result_ready <= 0;
-                    add_result_ack <= 0;
+                    result_ready = 0;
+                    add_result_ack = 0;
                     if(A_stb && B_stb)
                     begin
                         set_A_and_B();
-                        shift_left_block_A(DOWN);
-                        shift_left_block_B(RIGHT);
                         state <= S_SET_MULTIPLIERS_INPUT;
                     end
                     else
@@ -122,6 +120,8 @@ module fbf_multiplier (
                 end
                 S_SET_MULTIPLIERS_INPUT:
                 begin
+                    shift_left_block_A(DOWN);
+                    shift_left_block_B(RIGHT);
                     mult_load <= 1;
                     state <= S_WAIT_FOR_FIRST;
                 end
@@ -205,10 +205,10 @@ module fbf_multiplier (
                 begin
                  
                     set_result();
-                    result_ready <= 1;
+                    result_ready = 1;
                     if(result_ack)
                     begin
-                        result_ready <= 0;
+                        result_ready = 0;
                         state <= S_IDLE;
                     end
                     else
@@ -231,8 +231,8 @@ module fbf_multiplier (
         begin
             for(n = 0; n < 4 ; n = n + 1)
             begin
-                A_reg[m][n] = A[((m*4+n)*32)+:32];
-                B_reg[m][n] = B[((m*4+n)*32)+:32];
+                A_reg[m][n] <= A[((m*4+n)*32)+:32];
+                B_reg[m][n] <= B[((m*4+n)*32)+:32];
             end
         end
     end
